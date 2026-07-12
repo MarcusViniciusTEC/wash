@@ -362,6 +362,12 @@ void rinse_deinit(void)
 
 void rinse_process(bool valve_type)
 {
+
+    const wash_rinse_cfg_t *rinse_data;
+    rinse_data = &wash_rinse_cfg_data[0];
+
+    uint32_t now = HAL_GetTick();
+
     switch (rinse_states)
     {
         case RINSE_PROC_REUSE_WATTER:
@@ -371,10 +377,64 @@ void rinse_process(bool valve_type)
             rinse_states = RINSE_PROC_RAMP_Rx;
         break;
         case RINSE_PROC_RAMP_Rx:
-            rinse_process_rampRx();
+            switch (rinse_data->rampR3[ramp_type][index].wash_type)
+            {
+                case WASH_RAMP:
+                    if( now  - last_time >= rinse_data->rampR3[ramp_type][index].time)
+                    {
+                        index++;
+                        last_time = now ;
+                        MOTOR_CCW_OFF();
+                    }
+                    else
+                    {
+                        MOTOR_CCW_ON();
+                    }
+                break;
+                case WASH_RAMP_IDLE:
+                    if( now  - last_time >= rinse_data->rampR3[ramp_type][index].time)
+                    {
+                        index++;
+                        last_time = now ;
+                    }
+                break;
+                case WASH_RAMP_END:
+                    MOTOR_CCW_OFF();
+                    rinse_states = RINSE_PROC_RAMP_Ex;
+                break;
+                default:
+                break;
+            }
         break;
         case RINSE_PROC_RAMP_Ex:
-            rinse_process_rampEx();
+            switch (rinse_data->rampER[ramp_type][index].wash_type)
+            {
+                case WASH_RAMP:
+                    if( now  - last_time >= rinse_data->rampER[ramp_type][index].time)
+                    {
+                        index++;
+                        last_time = now ;
+                        MOTOR_CCW_OFF();
+                    }
+                    else
+                    {
+                        MOTOR_CCW_ON();
+                    }
+                break;
+                case WASH_RAMP_IDLE:
+                    if( now  - last_time >= rinse_data->rampER[ramp_type][index].time)
+                    {
+                        index++;
+                        last_time = now ;
+                    }
+                break;
+                case WASH_RAMP_END:
+                    MOTOR_CCW_OFF();
+                    rinse_states = RINSE_PROC_WATTER_FILL;
+                break;
+                default:
+                break;
+            }
         break;
         case RINSE_PROC_WATTER_FILL:
         break;
@@ -394,38 +454,9 @@ static uint8_t index;
 
 void rinse_process_rampRx(void)
 {
-    const wash_rinse_cfg_t *rinse_data;
-    rinse_data = &wash_rinse_cfg_data[0];
 
-    uint32_t now = HAL_GetTick();
 
-    switch (rinse_data->rampR3[ramp_type][index].wash_type)
-    {
-        case WASH_RAMP:
-        if( now  - last_time >= rinse_data->rampR3[ramp_type][index].time)
-        {
-            index++;
-            last_time = now ;
-            MOTOR_CCW_OFF();
-        }
-        else
-        {
-            MOTOR_CCW_ON();
-        }
-        break;
-        case WASH_RAMP_IDLE:
-        if( now  - last_time >= rinse_data->rampR3[ramp_type][index].time)
-        {
-            index++;
-            last_time = now ;
-        }
-        break;
-        case WASH_RAMP_END:
 
-        break;
-        default:
-        break;
-    }
 }
 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------*/
