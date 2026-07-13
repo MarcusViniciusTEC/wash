@@ -18,6 +18,13 @@ void wash_update(void);
 #define    MOTOR_CW_ON()   HAL_GPIO_WritePin(MOTOR_CW_GPIO_Port, MOTOR_CW_Pin, GPIO_PIN_SET)
 #define    MOTOR_CW_OFF()  HAL_GPIO_WritePin(MOTOR_CW_GPIO_Port, MOTOR_CW_Pin, GPIO_PIN_RESET)
 
+#define VALVE_SOFT_ON()
+#define VALVE_SOFT_OFF()
+
+#define VALVE_WATTER_ON()
+#define VALVE_WATTER_OFF()
+
+
 
 typedef enum
 {
@@ -280,9 +287,23 @@ void wash_update(void)
 /*====================================================================================================================================================*/
 /*====================================================================================================================================================*/
 /*====================================================================================================================================================*/
-void rinse_process(bool valve_type);
+void rinse_process(rinse_states_types_t rinse_number);
 void rinse_process_rampRx(void);
 void rinse_process_rampEx(void);
+
+typedef enum 
+{
+    DOUBLE_RINSE_ENABLE = 0U,
+    DOUBLE_RINSE_DISABLE,
+}rinse_config_types_t;
+
+
+typedef enum 
+{
+    FIRST_RINSE = 0U,
+    SECOND_RINSE,
+    NUMBER_OF_RINSES
+}rinse_number_types_t;
 
 typedef enum
 {
@@ -302,9 +323,18 @@ typedef enum
     RINSE_PROC_RAMP_Ex,
     RINSE_PROC_WATTER_FILL,
     RINSE_PROC_AGIT_2MIN,
-    RINSE_PROC_AGITSOAK
+    RINSE_PROC_AGITSOAK,
+    RINSE_PROC_END
     
 }rinse_states_types_t;
+
+
+typedef struct 
+{
+    rinse_config_types_t rinse_data;
+
+
+}rinse_ctrl_t;
 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -312,6 +342,8 @@ typedef enum
 uint8_t               ramp_type = 0; /*fazer uma função que analiza o nivel setado e define */
 rinse_states_types_t rinse_states = RINSE_PROC_REUSE_WATTER ;
 
+
+rinse_ctrl_t rinse_ctrl = {0} ;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void rinse_init(void)
@@ -331,10 +363,10 @@ void rinse_update(void)
         case RINSE_START:
         break;
         case RINSE_MONO: 
-            rinse_process(0);
+            rinse_process(RINSE_MONO);
         break;
         case RINSE_DOUBLE:
-            rinse_process(1);
+            rinse_process(RINSE_DOUBLE);
         break;
         case RINSE_END:
         break;
@@ -360,7 +392,7 @@ void rinse_deinit(void)
 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-void rinse_process(bool valve_type)
+void rinse_process(rinse_states_types_t rinse_number)
 {
 
     const wash_rinse_cfg_t *rinse_data;
@@ -375,6 +407,7 @@ void rinse_process(bool valve_type)
         break;
         case RINSE_PROC_DRAIN:
             rinse_states = RINSE_PROC_RAMP_Rx;
+            /*DRENA AGITANDO*/
         break;
         case RINSE_PROC_RAMP_Rx:
             switch (rinse_data->rampR3[ramp_type][index].wash_type)
@@ -437,10 +470,39 @@ void rinse_process(bool valve_type)
             }
         break;
         case RINSE_PROC_WATTER_FILL:
+            if(rinse_number == RINSE_MONO && rinse_ctrl.rinse_data == DOUBLE_RINSE_DISABLE)
+            {
+                VALVE_SOFT_ON();
+            }
+            else if(rinse_number == RINSE_MONO  && rinse_ctrl.rinse_data == DOUBLE_RINSE_ENABLE);
+            {
+                VALVE_WATTER_ON();
+                /*se encheu toma ação para agitar*/
+            }
         break;
         case RINSE_PROC_AGIT_2MIN:
+                /*AGITOU POR DOIS MINUTOS*/
+                if(now  - last_time >= 20000)
+                {
+                    rinse_states = RINSE_PROC_AGITSOAK;
+                }
         break;
         case RINSE_PROC_AGITSOAK:
+                static uint8_t index = 0;
+                switch (rinse_data->agitsoak[index].wash_type)
+                {
+                    case WASH_AGIT:
+                    break;
+                    case WASH_SOAK:
+                    break;
+                    case WASH_END:
+                        rinse_states = RINSE_PROC_AGITSOAK;
+                    break;
+                    default:
+                    break;
+                }
+        break;
+        case RINSE_PROC_END:
         break;
         default:
         break;
